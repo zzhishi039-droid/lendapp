@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>健康管理アプリ - healthapp</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js (グラフ用) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-50 min-h-screen text-gray-800">
+
+  <!-- ログイン画面 -->
+  <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full text-center border">
+      <h1 class="text-2xl font-bold mb-3 text-emerald-600">🩺 健康管理アプリ</h1>
+      <p class="text-gray-500 text-sm mb-6">日々の体調・体温・睡眠時間を記録しましょう。</p>
+      <button id="btn-login" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl shadow transition duration-200 flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h5.51c-.22 1.37-1.04 2.53-2.21 3.31v2.75h3.58c2.1-1.93 3.3-4.78 3.3-8.17 0-.58-.05-1.15-.15-1.62z"/><path fill="currentColor" d="M12.18 21c2.97 0 5.46-.98 7.28-2.66l-3.58-2.75c-.98.66-2.23 1.06-3.7 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 18.54 7.82 21 12.18 21z"/><path fill="currentColor" d="M6.02 12.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V5.04H2.18C1.43 6.53 1 8.21 1 10s.43 3.47 1.18 4.96l3.84-2.84z"/><path fill="currentColor" d="M12.18 4.75c1.62 0 3.08.56 4.23 1.64l3.17-3.17C17.63 1.44 15.15 0 12.18 0 7.82 0 3.99 2.46 2.18 6.04l3.84 2.84c.87-2.6 3.3-4.13 6.16-4.13z"/></svg>
+        Googleアカウントでログイン
+      </button>
+    </div>
+  </div>
+
+  <!-- メイン画面 -->
+  <div id="app-screen" class="hidden max-w-4xl mx-auto p-4 md:p-6">
+    <!-- ヘッダー -->
+    <header class="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl shadow mb-6 gap-4 border">
+      <div class="flex items-center gap-3">
+        <img id="user-photo" class="w-10 h-10 rounded-full border" src="" alt="User">
+        <div>
+          <h1 class="text-lg font-bold text-gray-800">健康管理ダッシュボード</h1>
+          <p id="user-name" class="text-xs text-gray-500"></p>
+        </div>
+      </div>
+      <button id="btn-logout" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition">ログアウト</button>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- フォーム -->
+      <div class="bg-white p-5 rounded-xl shadow border md:col-span-1">
+        <h2 class="text-base font-bold mb-4 text-emerald-600 flex items-center gap-1">
+          📝 今日の体調を記録
+        </h2>
+        
+        <div id="error-msg" class="hidden mb-4 p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200"></div>
+
+        <form id="record-form" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">日付</label>
+            <input type="date" id="input-date" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">体温 (℃)</label>
+            <input type="number" step="0.1" id="input-temp" placeholder="例: 36.5" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">睡眠時間 (時間)</label>
+            <input type="number" step="0.5" id="input-sleep" placeholder="例: 7.5" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">体調</label>
+            <select id="input-condition" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none">
+              <option value="良い">😊 良い</option>
+              <option value="ふつう" selected>😐 ふつう</option>
+              <option value="悪い">😷 悪い</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">メモ</label>
+            <textarea id="input-memo" rows="3" placeholder="メモを入力..." class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg shadow transition text-sm">記録する</button>
+        </form>
+      </div>
+
+      <!-- データ表示 -->
+      <div class="space-y-6 md:col-span-2">
+        <!-- グラフ -->
+        <div class="bg-white p-4 rounded-xl shadow border">
+          <h3 class="text-xs font-bold text-gray-600 mb-2">📊 体温・睡眠時間の推移</h3>
+          <div class="h-44">
+            <canvas id="healthChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 一覧リスト -->
+        <div class="bg-white p-5 rounded-xl shadow border">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+            <h2 class="text-base font-bold text-gray-800">📋 記録一覧</h2>
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-semibold text-gray-500">絞り込み:</label>
+              <select id="filter-condition" class="border text-xs rounded-md p-1.5 focus:ring-2 focus:ring-emerald-400">
+                <option value="all">すべて表示</option>
+                <option value="悪い">😷 悪い のみ</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="record-list" class="space-y-3 max-h-80 overflow-y-auto pr-1">
+            <!-- 挿入エリア -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAqZrHB8rPncF2UWeu_gWUmpaRv-_lD9Gc",
+      authDomain: "lendapp-eea06.firebaseapp.com",
+      projectId: "lendapp-eea06",
+      storageBucket: "lendapp-eea06.firebasestorage.app",
+      messagingSenderId: "436537825109",
+      appId: "1:436537825109:web:dceaac1d5db6905bd1c1dc",
+      measurementId: "G-9PHNCKLMTK"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let rawRecords = [];
+    let chartInstance = null;
+
+    document.getElementById('input-date').valueAsDate = new Date();
+
+    // ログイン・ログアウト
+    document.getElementById('btn-login').addEventListener('click', () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(err => alert("ログインエラー: " + err.message));
+    });
+    document.getElementById('btn-logout').addEventListener('click', () => auth.signOut());
+
+    // 認証状態の監視
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-screen').classList.remove('hidden');
+        document.getElementById('user-name').textContent = user.displayName || user.email;
+        document.getElementById('user-photo').src = user.photoURL || 'https://via.placeholder.com/40';
+        loadRecords();
+      } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('app-screen').classList.add('hidden');
+      }
+    });
+
+    // 記録保存 (入力検証機能付き)
+    document.getElementById('record-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('input-date').value;
+      const temp = document.getElementById('input-temp').value;
+      const sleep = document.getElementById('input-sleep').value;
+      const condition = document.getElementById('input-condition').value;
+      const memo = document.getElementById('input-memo').value;
+
+      const errorMsg = document.getElementById('error-msg');
+      errorMsg.classList.add('hidden');
+
+      if (!date || !temp || !sleep) {
+        errorMsg.textContent = "日付、体温、睡眠時間は必須項目です。";
+        errorMsg.classList.remove('hidden');
+        return;
+      }
+
+      if (isNaN(temp) || isNaN(sleep) || Number(temp) < 30 || Number(temp) > 45 || Number(sleep) < 0) {
+        errorMsg.textContent = "体温または睡眠時間に正しい数値を入れてください。";
+        errorMsg.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        await db.collection('health_records').add({
+          uid: currentUser.uid,
+          date: date,
+          temp: parseFloat(temp),
+          sleep: parseFloat(sleep),
+          condition: condition,
+          memo: memo,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById('input-temp').value = '';
+        document.getElementById('input-sleep').value = '';
+        document.getElementById('input-memo').value = '';
+        document.getElementById('input-date').valueAsDate = new Date();
+      } catch (err) {
+        errorMsg.textContent = "保存失敗: " + err.message;
+        errorMsg.classList.remove('hidden');
+      }
+    });
+
+    // ユーザー別データ読み込み (リアルタイム)
+    function loadRecords() {
+      db.collection('health_records')
+        .where('uid', '==', currentUser.uid)
+        .onSnapshot(snapshot => {
+          rawRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          renderData();
+        });
+    }
+
+    document.getElementById('filter-condition').addEventListener('change', renderData);
+
+    function renderData() {
+      const filterVal = document.getElementById('filter-condition').value;
+
+      // 日付降順ソート
+      let sortedRecords = [...rawRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      // 絞り込み
+      let displayRecords = sortedRecords;
+      if (filterVal !== 'all') {
+        displayRecords = sortedRecords.filter(r => r.condition === filterVal);
+      }
+
+      const container = document.getElementById('record-list');
+      if (displayRecords.length === 0) {
+        container.innerHTML = `<p class="text-center text-gray-400 py-6 text-xs">記録が見つかりません</p>`;
+      } else {
+        container.innerHTML = displayRecords.map(item => `
+          <div class="p-3 bg-gray-50 border rounded-lg flex justify-between items-start hover:bg-slate-100 transition">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-xs text-gray-800">${item.date}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium ${
+                  item.condition === '良い' ? 'bg-emerald-100 text-emerald-700' :
+                  item.condition === 'ふつう' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                }">${item.condition}</span>
+              </div>
+              <div class="text-xs text-gray-600 gap-3 flex">
+                <span>🌡️ <b>${item.temp}℃</b></span>
+                <span>🌙 <b>${item.sleep}時間</b></span>
+              </div>
+              ${item.memo ? `<p class="text-xs text-gray-500 mt-1 bg-white p-1.5 rounded border whitespace-pre-wrap">${escapeHtml(item.memo)}</p>` : ''}
+            </div>
+            <button onclick="deleteRecord('${item.id}')" class="text-xs text-rose-400 hover:text-rose-600 p-1">削除</button>
+          </div>
+        `).join('');
+      }
+
+      // グラフ用（昇順）
+      const chartRecords = [...rawRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+      renderChart(chartRecords);
+    }
+
+    async function deleteRecord(id) {
+      if (confirm('この記録を削除しますか？')) {
+        await db.collection('health_records').doc(id).delete();
+      }
+    }
+
+    function renderChart(records) {
+      const ctx = document.getElementById('healthChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: records.map(r => r.date),
+          datasets: [
+            {
+              label: '体温 (℃)',
+              data: records.map(r => r.temp),
+              borderColor: 'rgb(244, 63, 94)',
+              backgroundColor: 'rgba(244, 63, 94, 0.1)',
+              yAxisID: 'yTemp',
+              tension: 0.3
+            },
+            {
+              label: '睡眠時間 (h)',
+              data: records.map(r => r.sleep),
+              borderColor: 'rgb(59, 130, 246)',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              yAxisID: 'ySleep',
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            yTemp: { type: 'linear', position: 'left', suggestedMin: 35, suggestedMax: 38 },
+            ySleep: { type: 'linear', position: 'right', suggestedMin: 0, suggestedMax: 12, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+    }
+  </script>
+</body>
+</html>
